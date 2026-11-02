@@ -1,10 +1,11 @@
 // My Jira tickets, each with the agents working on it: an agent belongs to a ticket
-// when its branch, folder, tab or space names the ticket's key. Done tickets show
+// when its branch, folder (its terminal's or its processes'), tab or space names the
+// ticket's key. Done tickets show
 // only while an agent on them is still open.
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, panes, focused, run, theme, exec, shared, setShared, props, closeOverlay } from "herdr";
+import { agents, panes, terminals, focused, run, theme, exec, shared, setShared, props, closeOverlay } from "herdr";
 
 const SITE = "https://embarkvet.atlassian.net";
 const JQL = "assignee = currentUser() AND (statusCategory != Done OR updated >= -30d) ORDER BY updated DESC";
@@ -29,8 +30,8 @@ const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 const top = (list) => list.reduce((m, a) => ((RANK[a.status] ?? 0) > (RANK[m] ?? 0) ? a.status : m), null);
 
 // Every key-shaped word in what the agent is working in, most specific first.
-function keysOf(a, pane) {
-  return [pane?.branch, pane?.cwd, a.tab_name, a.space_name, a.title]
+function keysOf(a, pane, cwds) {
+  return [pane?.branch, ...(cwds ?? []), pane?.cwd, a.tab_name, a.space_name, a.title]
     .flatMap((s) => (s ?? "").match(KEYS) ?? [])
     .map((k) => k.toUpperCase());
 }
@@ -38,8 +39,12 @@ function keysOf(a, pane) {
 export default class Tickets extends View {
   init(_props, cx) {
     // Copies share one fetch: whichever finds the data stale refreshes it for all.
-    cx.timer.every(30000, (cx) => this.refresh(cx));
+    cx.timer.every(30000, (cx) => {
+      this.refresh(cx);
+      this.scan(cx);
+    });
     this.refresh(cx);
+    this.scan(cx);
     // As a window, opening it again closes it instead; see the board mod.
     const win = props()?.overlay;
     if (!win) return;
@@ -82,6 +87,36 @@ export default class Tickets extends View {
       }
       this.loading = false;
       cx.notify();
+    });
+  }
+
+  // An agent that moves into a worktree under a wrapper script (dingus) or by its own
+  // worktree switch leaves its terminal's folder behind, so read its processes' folders.
+  scan(cx) {
+    const roots = new Map(terminals().filter((tm) => tm.pid).map((tm) => [tm.pid, tm.address]));
+    cx.spawn(async (cx) => {
+      try {
+        const ps = await exec("ps", ["-A", "-o", "pid=,ppid="]);
+        const parent = new Map(ps.stdout.trim().split("\n").map((l) => l.trim().split(/\s+/).map(Number)));
+        const owner = (pid) => {
+          for (let p = pid; p > 1; p = parent.get(p)) if (roots.has(p)) return roots.get(p);
+          return null;
+        };
+        const kids = [...parent.keys()].filter((p) => !roots.has(p) && owner(p));
+        if (!kids.length) return;
+        // lsof exits nonzero when a process ended meanwhile; what it printed still holds.
+        const r = await exec("lsof", ["-a", "-d", "cwd", "-Fpn", "-p", kids.join(",")]);
+        const cwds = {};
+        let addr = null;
+        for (const l of r.stdout.split("\n")) {
+          if (l[0] === "p") addr = owner(Number(l.slice(1)));
+          else if (l[0] === "n" && addr) (cwds[addr] ??= new Set()).add(l.slice(1));
+        }
+        this.cwds = Object.fromEntries(Object.entries(cwds).map(([k, v]) => [k, [...v]]));
+        cx.notify();
+      } catch {
+        // No ps or lsof: match on what Herdr knows.
+      }
     });
   }
 
@@ -226,7 +261,7 @@ export default class Tickets extends View {
     const byKey = new Map();
     const other = [];
     for (const a of agents()) {
-      const keys = keysOf(a, byPane.get(a.pane));
+      const keys = keysOf(a, byPane.get(a.pane), this.cwds?.[a.address]);
       const key = keys.find((k) => known.has(k));
       if (key) byKey.set(key, [...(byKey.get(key) ?? []), a]);
       else other.push({ a, key: keys.find((k) => projects.has(k.split("-")[0])) ?? null });
