@@ -1,0 +1,6 @@
+{
+  "global": {
+    "cmd-shift-k": "mod.open:board",
+    "cmd-shift-j": "mod.open:tickets"
+  }
+}
