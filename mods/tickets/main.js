@@ -632,11 +632,13 @@ export default class Tickets extends View {
       .when(Boolean(win), (el) => el.child(this.button(t, "tk-close", "×", null, () => closeOverlay(win))));
     const empty = !data && div().p(12).text_size(12).text_color(t.dim).child(error ? "Couldn't reach Jira." : "Loading tickets…");
 
-    const view = { win: Boolean(win), mine, prs, byKey: new Map(tickets.map((tk) => [tk.key, tk])), order: [] };
+    // The window's list: as the window, or as a layout block with props { view: "list" }.
+    const list = Boolean(win) || props()?.view === "list";
+    const view = { win: list, mine, prs, byKey: new Map(tickets.map((tk) => [tk.key, tk])), order: [] };
     this.view = view;
     const keyed = (el) => el.track_focus(this.handle).on_key_down((e, cx) => this.key(e, cx));
 
-    if (win) return keyed(this.window(t, cx, { toolbar, empty, groups, mine, prs, other, shown, head, view }));
+    if (list) return keyed(this.window(t, cx, { win, toolbar, empty, groups, mine, prs, other, shown, head, view }));
 
     // A layout block: one column per status (agentless tickets last), strays at the end.
     const cols = groups(() => true);
@@ -670,9 +672,9 @@ export default class Tickets extends View {
           .children(other.map(({ a, key }) => this.agentRow(t, a, shown, key))))))));
   }
 
-  // The window: tickets with agents by status, then the agentless ones and stray agents,
-  // each section foldable. Its corner grip resizes it.
-  window(t, cx, { toolbar, empty, groups, mine, prs, other, shown, head, view }) {
+  // The list: tickets with agents by status, then the agentless ones and stray agents,
+  // each section foldable. As a window, its corner grip resizes it; as a block, it fills it.
+  window(t, cx, { win, toolbar, empty, groups, mine, prs, other, shown, head, view }) {
     const folded = shared("tickets.fold") ?? {};
     const isFolded = (id, fallback) => folded[id] ?? fallback;
     const section = (id, label, count, fallback, body) => v_flex().flex_none().gap(2)
@@ -701,6 +703,11 @@ export default class Tickets extends View {
       other.length > 0 && section("other", "Other agents", other.length, false, () => other.map(({ a, key }) => this.agentRow(t, a, shown, key))),
     ].filter(Boolean);
 
+    const rows = v_flex().id("tk-rows").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8).gap(10)
+      .when(Boolean(empty), (el) => el.child(empty))
+      .children(sections);
+    if (!win) return v_flex().id("tk-list").size_full().text_size(13).child(toolbar).child(rows);
+
     const size = this.size ?? shared("tickets.size") ?? SIZE;
     const reach = this.drag ? REACH : 0;
     const content = v_flex()
@@ -708,9 +715,7 @@ export default class Tickets extends View {
       .h(size.h)
       .text_size(13)
       .child(toolbar)
-      .child(v_flex().id("tk-rows").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8).gap(10)
-        .when(Boolean(empty), (el) => el.child(empty))
-        .children(sections));
+      .child(rows);
 
     const grip = div()
       .id("tk-grip")
