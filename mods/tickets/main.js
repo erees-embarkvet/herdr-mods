@@ -88,7 +88,9 @@ export default class Tickets extends View {
         cx.notify();
       }
     });
-    // As a window, opening it again closes it instead; see the board mod.
+    // As a window, opening it again closes it instead. Herdr has no toggle: opening the
+    // same key replaces the open window, so the old copy records when it closed, and a new
+    // copy that opened at that moment knows it replaced one and closes itself too.
     const win = props()?.overlay;
     if (!win) return;
     this.handle.focus();
