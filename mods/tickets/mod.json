@@ -1,1 +1,1 @@
-{ "place": "none", "title": "Tickets", "overlay": { "kind": "window", "key": "tickets", "keep": true } }
+{ "place": "none", "title": "Tickets", "focusable": true, "overlay": { "kind": "window", "key": "tickets", "keep": true } }
