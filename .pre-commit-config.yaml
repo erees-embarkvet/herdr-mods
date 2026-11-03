@@ -1,0 +1,75 @@
+# Adapted from the ProjectAussie pre-commit baseline (same hooks and revs), minus
+# the ticket-ID hooks, plus checks for this repo's mods, layouts and install script.
+# CI runs every pre-commit hook, then the manual stage: .github/workflows/pre-commit.yml.
+minimum_pre_commit_version: "4.4.0"
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        stages: [pre-commit]
+      - id: check-added-large-files
+        alias: check-large-files-full
+        name: check for large files (whole tree)
+        args: [--enforce-all]
+        stages: [manual]
+      - id: check-json
+      - id: check-yaml
+      - id: check-xml
+        name: check svg
+        types: [svg]
+      - id: check-symlinks
+      # Upstream also puts these four on the manual stage, which would make CI run them
+      # twice; a hook's own stages beat default_stages, so pin them.
+      - id: check-executables-have-shebangs
+        stages: [pre-commit]
+      - id: check-shebang-scripts-are-executable
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        stages: [pre-commit]
+      - id: trailing-whitespace
+        stages: [pre-commit]
+      - id: detect-private-key
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+      - id: gitleaks
+        alias: gitleaks-full
+        name: gitleaks (full working tree)
+        entry: gitleaks dir --redact
+        pass_filenames: false
+        stages: [manual]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.29.0
+    hooks:
+      - id: zizmor
+        # API-backed audits need a GitHub token: CI only.
+        stages: [manual]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [--severity=warning]
+
+  - repo: local
+    hooks:
+      - id: mod-syntax
+        name: mod JS parses
+        # Parse only: the mods import Herdr's runtime modules (gpui-kit, herdr), which
+        # exist only inside the app. Node detects ES module syntax on its own from 22.
+        entry: sh -c 'for f; do node --check "$f" || exit 1; done' --
+        language: system
+        files: ^mods/.*\.js$

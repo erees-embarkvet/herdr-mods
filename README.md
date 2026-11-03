@@ -21,6 +21,8 @@ My mods and layouts for the [Herdr app](https://herdr.dev).
 
 Symlinks `mods/*` and `layouts/*` into `~/.config/herdr-app` (or `$HERDR_APP_HOME`). Merge `keys.json` into Herdr's `keys.json` by hand.
 
+Hooks: `pre-commit install --install-hooks`. CI runs the same hooks plus the manual stage (whole-tree gitleaks and large files, zizmor).
+
 `tickets` needs [`acli`](https://developer.atlassian.com/cloud/acli/) logged in (`acli jira auth login`) and `gh` logged in for PRs. Its Jira site, query and launch command are constants at the top of `mods/tickets/main.js`.
 
 Keys in `tickets` (click it, or `pane.go` onto the layout block): `j`/`k` move, `enter` goes to its agent, `space` opens the row, `o` Jira, `p` PR, `y` copies the key, `s` starts an agent, `t` takes the suggested move (press again to confirm), `r` refreshes, `esc` hands the keyboard back.
