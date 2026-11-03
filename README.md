@@ -21,7 +21,7 @@ My mods and layouts for the [Herdr app](https://herdr.dev).
 
 Symlinks `mods/*` and `layouts/*` into `~/.config/herdr-app` (or `$HERDR_APP_HOME`). Merge `keys.json` into Herdr's `keys.json` by hand.
 
-Hooks: `pre-commit install --install-hooks`. CI runs the same hooks plus the manual stage (whole-tree gitleaks and large files, zizmor).
+Hooks: `pre-commit install --install-hooks`. Commits to `main` are refused: work on a branch and open a PR (`SKIP=no-commit-to-branch git commit …` to bypass). CI runs the same hooks plus the manual stage (whole-tree gitleaks and large files, zizmor).
 
 `tickets` needs [`acli`](https://developer.atlassian.com/cloud/acli/) logged in (`acli jira auth login`) and `gh` logged in for PRs. Its Jira site, query and launch command are constants at the top of `mods/tickets/main.js`.
 

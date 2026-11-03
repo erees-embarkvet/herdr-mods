@@ -34,6 +34,10 @@ repos:
       - id: trailing-whitespace
         stages: [pre-commit]
       - id: detect-private-key
+      # Work goes on a branch and through a PR. GitHub can't enforce that on a free
+      # private repo, so this does, locally. Bypass: SKIP=no-commit-to-branch git commit …
+      - id: no-commit-to-branch
+        args: [--branch, main]
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1

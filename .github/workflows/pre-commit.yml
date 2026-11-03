@@ -40,6 +40,9 @@ jobs:
       - run: pip install pre-commit==4.6.1
 
       - name: Commit-stage hooks
+        env:
+          # A push to main checks out main, which this hook exists to refuse.
+          SKIP: no-commit-to-branch
         run: pre-commit run --all-files --show-diff-on-failure --color always
 
       - name: CI-only hooks (full-tree gitleaks and large files, zizmor)
