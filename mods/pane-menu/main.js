@@ -1,5 +1,5 @@
 // Terminal right-click menu: Herdr's pane items (copied from the shipped `menu`),
-// plus Restart Claude for Claude Code terminals. A layout picks it with
+// plus Copy pane ID, and Restart Claude for Claude Code terminals. A layout picks it with
 // "terminal_menu": "pane-menu". Props { tab: "pane", target: { pane, terminal }, overlay }.
 // ↑/↓ move, Enter runs, Esc closes. An item is [label, command, args, icon];
 // a command "restart" runs restart.sh detached, since the menu closes first.
@@ -28,6 +28,7 @@ function items(p) {
           toProgram
             ? ["Use Herdr right-click menu", "terminal.right_click", { terminal: term.address, to: "menu" }, "terminal"]
             : ["Send right-clicks to pane", "terminal.right_click", { terminal: term.address, to: "program" }, "terminal"],
+          ["Copy pane ID", "copy", { text: term.address }, "copy"],
         ]
       : []),
     ...(parent ? [[`Send back to ${parent.name || parent.address}`, "terminal.park", { terminal: term.address }, "terminal"]] : []),
@@ -70,6 +71,8 @@ export default class PaneMenu extends View {
     if (!it) return;
     closeOverlay(props()?.overlay);
     if (it[1] === "restart") restart(it[2]);
+    // Mods can't write the clipboard; pbcopy can.
+    else if (it[1] === "copy") exec("/bin/sh", ["-c", 'printf %s "$0" | pbcopy', it[2].text]);
     else run(it[1], it[2]);
   }
 
@@ -111,7 +114,7 @@ export default class PaneMenu extends View {
                 .on_click(() => this.choose(i))
                 .child(svg(`mods/pane-menu/${it[3]}.svg`).size(14).flex_none().text_color(t.muted))
                 .child(div().flex_1().child(it[0]))
-                .child(div().text_size(11).text_color(t.dim).child(shortcut(it[1], it[2]))),
+                .child(div().text_size(11).text_color(t.dim).child(it[1] === "copy" ? it[2].text : shortcut(it[1], it[2]))),
             ),
         ),
       );
