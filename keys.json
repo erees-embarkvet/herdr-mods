@@ -1,5 +1,8 @@
 {
   "global": {
     "cmd-shift-j": "mod.open:tickets"
+  },
+  "layout:tickets": {
+    "cmd-shift-l": "layout.switch:main"
   }
 }
