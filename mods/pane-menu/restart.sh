@@ -23,11 +23,20 @@ info="$(hc get "$t")" || fail "No terminal $t."
 [[ "$(jq -r '.status.app // empty' <<<"$info")" == claude-code ]] || fail "$t isn't running Claude Code."
 pid="$(jq -r '.foreground.pid // empty' <<<"$info")"
 shell_pid="$(jq -r '.pid' <<<"$info")"
-# Claude Code's own record of the session a process holds.
-session="$HOME/.claude/sessions/$pid.json"
-sid="$(jq -r '.sessionId // empty' "$session" 2>/dev/null)"
-cwd="$(jq -r '.cwd // empty' "$session" 2>/dev/null)"
+# The SessionStart hook labels the terminal with its session. Sessions that
+# started before the hook fall back to Claude Code's own record (undocumented).
+sid="$(jq -r '.labels["claude.session"] // empty' <<<"$info")"
+cwd="$(jq -r '.labels["claude.cwd"] // empty' <<<"$info")"
+model="$(jq -r '.labels["claude.model"] // empty' <<<"$info")"
+if [[ -z "$sid" || -z "$cwd" ]]; then
+  session="$HOME/.claude/sessions/$pid.json"
+  sid="$(jq -r '.sessionId // empty' "$session" 2>/dev/null)"
+  cwd="$(jq -r '.cwd // empty' "$session" 2>/dev/null)"
+fi
 [[ -n "$sid" && -n "$cwd" ]] || fail "No session found for $t."
+# --resume brings back the agent and permission mode, not the model.
+resume=(claude --resume "$sid")
+[[ -n "$model" ]] && resume+=(--model "$model")
 
 if [[ "$mode" == force ]]; then
   kill -TERM "$pid"
@@ -43,15 +52,15 @@ fi
 for _ in $(seq 1200); do
   now="$(hc get "$t" 2>/dev/null)"
   if [[ "$(jq -r '.state' <<<"$now")" != live ]]; then
-    args="$(jq -nc --arg s "$space" --arg n "$name" --arg f "$cwd" --arg id "$sid" \
-      '{space: $s, name: $n, folder: $f, argv: ["claude", "--resume", $id]}')"
+    args="$(jq -nc --arg s "$space" --arg n "$name" --arg f "$cwd" \
+      '{space: $s, name: $n, folder: $f, argv: $ARGS.positional}' --args -- "${resume[@]}")"
     herdr-app "do" tab.new "$args" >/dev/null || fail "Couldn't open a tab for session $sid."
     exit 0
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
     # Claude was the terminal's program: it finishes, unless kept (a new shell).
     if [[ "$pid" == "$shell_pid" && "$(jq -r '.pid' <<<"$now")" == "$pid" ]]; then sleep 0.5; continue; fi
-    hc send "$t" "cd $(printf %q "$cwd") && claude --resume $sid" >/dev/null || fail "Couldn't resume in $t."
+    hc send "$t" "cd $(printf %q "$cwd") && $(printf '%q ' "${resume[@]}")" >/dev/null || fail "Couldn't resume in $t."
     exit 0
   fi
   sleep 0.5
