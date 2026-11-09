@@ -67,13 +67,15 @@ export default class ClaudeResume extends View {
         // A session nobody wrote to has no transcript and can't be resumed.
         const transcript = labels["claude.transcript"];
         if (transcript && (await exec("test", ["-f", transcript])).code !== 0) continue;
-        const sent = await hc(["send", address, `cd ${quote(cwd)} && claude --resume ${sid}`]);
+        // --resume brings back the agent and permission mode, not the model.
+        const model = labels["claude.model"] ? ` --model ${quote(labels["claude.model"])}` : "";
+        const sent = await hc(["send", address, `cd ${quote(cwd)} && claude --resume ${sid}${model}`]);
         if (sent.code === 0) resumed.push(address);
         continue;
       }
       const since = (this.exitedSince[address] ??= Date.now());
       if (Date.now() - since >= EXITED_MS) {
-        await hc(["label", address, "claude.session=", "claude.cwd=", "claude.shell=", "claude.transcript="]);
+        await hc(["label", address, "claude.session=", "claude.cwd=", "claude.shell=", "claude.transcript=", "claude.model="]);
         delete this.exitedSince[address];
       }
     }
